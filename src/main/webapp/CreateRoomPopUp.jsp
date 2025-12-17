@@ -142,8 +142,22 @@ pageEncoding="UTF-8"
 
           <input type="submit" id="addBtn" value="방 만들기">
           
-
     </form>
+    
+    <script>
+		const socket = new WebSocket(
+		  "ws://localhost:8080/mini_project/room"
+		);
+		
+		function createRoom() {
+		    socket.send(JSON.stringify({
+		        type: "CREATE_ROOM",
+		        title: document.getElementById("title").value,
+		        mode: document.querySelector("input[name=mode]:checked").value
+		    }));
+		    window.close();
+		}
+</script>
     
 </body>
 </html>
