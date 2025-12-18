@@ -1,21 +1,19 @@
 package domain;
 
 import javax.servlet.http.HttpSession;
-import javax.websocket.HandshakeResponse;
-import javax.websocket.server.HandshakeRequest;
 import javax.websocket.server.ServerEndpointConfig;
 
-public class HttpSessionConfigurator extends ServerEndpointConfig.Configurator {
+public class HttpSessionConfigurator
+        extends ServerEndpointConfig.Configurator {
 
-	@Override
-	public void modifyHandshake(
-		ServerEndpointConfig sec,
-		HandshakeRequest request,
-		HandshakeResponse response
-	) {
-		HttpSession httpSession =
-		    (HttpSession) request.getHttpSession();
-		sec.getUserProperties().put("httpSession", httpSession);
-	}
+    @Override
+    public void modifyHandshake(
+        ServerEndpointConfig sec,
+        javax.websocket.server.HandshakeRequest request,
+        javax.websocket.HandshakeResponse response
+    ) {
+        HttpSession session =
+            (HttpSession) request.getHttpSession();
+        sec.getUserProperties().put("httpSession", session);
+    }
 }
-

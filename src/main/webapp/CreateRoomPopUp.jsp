@@ -10,12 +10,25 @@ pageEncoding="UTF-8"
     <title>방 만들기</title>
 
     <style>
+    	html, body {
+		    width: 100%;
+		    height: 100%;
+		    margin: 0;
+		}
+    
         body {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
         }
+        
+        .popup-container {
+		    display: flex;
+		    flex-direction: column; 
+		    align-items: center;
+		    gap: 30px;
+		}
 
         h1 {
             font-size: 36px;
@@ -42,14 +55,8 @@ pageEncoding="UTF-8"
             font-size: 24px;
             padding-left: 15px;
             font-weight: 500;
-            border: 6px solid transparent;   /* ★ 필수 */
-            border-image-source: url("/mini_project/src/main/webapp/img/box2.png");
-            border-image-slice: 40 44 32 44;
-            border-image-width: 40px 44px 32px 44px;
-            border-image-outset: 0px;
-            border-image-repeat: round;
-            
-            
+            border: 6px solid #D4D4D4;
+            border-radius: 15px;
             
         }
 
@@ -71,7 +78,7 @@ pageEncoding="UTF-8"
         .radio-box input:checked + .text-stroke {
             color: white;
             -webkit-text-stroke: 4px #7F7F7F;
-            border: 4px dashed #F0B061;
+            border: 5px dashed #F0B061;
 
         }
 
@@ -111,53 +118,64 @@ pageEncoding="UTF-8"
             gap: 15px;
         }
 
-        
-
     </style>
 </head>
 
 <body>
+  <div class="popup-container">
+    <div id="addTitle">
+        <h1>방제</h1>
+        <input type="text" id="title" placeholder="방 제목">
+    </div>
 
-    <form method="post" action="MINI_PROJECT/게임방">
+    <div class="radio-wrap">
+    	<!-- 30s -->
+        <label class="radio-box">
+          <input type="radio" name="mode" value="30s" checked>
+          <div class="text-stroke">30s</div>
+        </label>
 
-        <div id="addTitle">
-            <h1>방제</h1>
-            <input type="text" name="title" id="title" placeholder="방 제목">
-        </div>
+    	<!-- 60s -->
+        <label class="radio-box">
+          <input type="radio" name="mode" value="60s">
+          <div class="text-stroke">60s</div>
+        </label>
+    </div>
 
-        <div class="radio-wrap">
-            <!-- 30s -->
-            <label class="radio-box">
-              <input type="radio" name="mode" value="30s" checked>
-              <div class="text-stroke">30s</div>
-            </label>
-
-            <!-- 60s -->
-            <label class="radio-box">
-              <input type="radio" name="mode" value="60s">
-              <div class="text-stroke">60s</div>
-            </label>
-
-          </div>
-
-          <input type="submit" id="addBtn" value="방 만들기">
-          
-    </form>
+	<button type="button" id="addBtn" onclick="createRoom()">방 만들기</button>
     
-    <script>
-		const socket = new WebSocket(
-		  "ws://localhost:8080/mini_project/room"
-		);
-		
-		function createRoom() {
-		    socket.send(JSON.stringify({
-		        type: "CREATE_ROOM",
-		        title: document.getElementById("title").value,
-		        mode: document.querySelector("input[name=mode]:checked").value
-		    }));
-		    window.close();
-		}
+   </div>
+    
+          
+<script>
+const socket = new WebSocket(
+    (location.protocol === "https:" ? "wss://" : "ws://")
+    + location.host
+    + "/mini_project/room"
+);
+
+socket.onmessage = e => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === "ROOM_CREATED") {
+        window.opener.location.href =
+            "/mini_project/GameRoom.jsp?roomId=" + data.roomId;
+        window.close();
+    }
+
+};
+
+function createRoom() {
+    socket.send(JSON.stringify({
+        type: "CREATE_ROOM",
+        title: document.getElementById("title").value,
+        mode: document.querySelector("input[name=mode]:checked").value
+    }));
+}
 </script>
+
+
+
     
 </body>
 </html>

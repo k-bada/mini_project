@@ -1,18 +1,9 @@
 package domain;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
+import java.util.*;
 import javax.servlet.http.HttpSession;
-import javax.websocket.EndpointConfig;
-import javax.websocket.OnClose;
-import javax.websocket.OnMessage;
-import javax.websocket.OnOpen;
-import javax.websocket.Session;
+import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 
 import com.google.gson.Gson;
@@ -20,103 +11,160 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 @ServerEndpoint(
-	    value = "/room",
-	    configurator = HttpSessionConfigurator.class
-	)
-	public class RoomWebSocket {
+    value = "/room",
+    configurator = HttpSessionConfigurator.class
+)
+public class RoomWebSocket {
 
-	    private static Map<String, Room> roomMap = new HashMap<>();
-	    private static Set<Session> sessions = new HashSet<>();
+    private static Map<String, Room> roomMap = new HashMap<>();
+    private static Set<Session> sessions = new HashSet<>();
+    private static Gson gson = new Gson();
 
-	    @OnOpen
-	    public void onOpen(Session session, EndpointConfig config)
-	            throws IOException {
+    /* ===== 접속 ===== */
+    @OnOpen
+    public void onOpen(Session session, EndpointConfig config) throws IOException {
+        sessions.add(session);
 
-	        sessions.add(session);
+        HttpSession httpSession =
+            (HttpSession) config.getUserProperties().get("httpSession");
 
-	        HttpSession httpSession =
-	            (HttpSession) config.getUserProperties().get("httpSession");
+        User user = (User) httpSession.getAttribute("user");
+        if (user == null) {
+            user = new User();
+            user.setUserId(UUID.randomUUID().toString()); 
+            user.setNickname("게스트-" + user.getUserId().substring(0, 4));
+            user.setAvatar("/img/default-avatar.jpg");
+            httpSession.setAttribute("user", user);
+        }
+        
+        // 혹시 기존 유저인데 avatar 없는 경우도 대비
+        if (user.getAvatar() == null) {
+        	user.setAvatar("/img/default-avatar.jpg");
+        }
 
-	        User user = (User) httpSession.getAttribute("user");
-	        session.getUserProperties().put("user", user);
+        session.getUserProperties().put("user", user);
+        sendRoomList(session);
+    }
 
-	        sendRoomList(session);
-	    }
+    /* ===== 종료 ===== */
+    @OnClose
+    public void onClose(Session session) throws IOException {
+        sessions.remove(session);
+        // ❌ 방 관련 로직 절대 하지 말 것
+        System.out.println("🔌 WebSocket closed (방 유지)");
+    }
 
-	    @OnClose
-	    public void onClose(Session session) throws IOException {
-	        sessions.remove(session);
-	        removeUserFromRooms(session);
-	        broadcastRooms();
-	    }
 
-	    @OnMessage
-	    public void onMessage(String msg, Session session)
-	            throws IOException {
+    /* ===== 메시지 ===== */
+    @OnMessage
+    public void onMessage(String msg, Session session) throws IOException {
+        JsonObject json = JsonParser.parseString(msg).getAsJsonObject();
+        String type = json.get("type").getAsString();
+        User user = (User) session.getUserProperties().get("user");
 
-	        JsonObject json = JsonParser.parseString(msg).getAsJsonObject();
-	        String type = json.get("type").getAsString();
+        switch (type) {
+            case "CREATE_ROOM": {
+                String roomId = createRoom(json, user);
 
-	        User user = (User) session.getUserProperties().get("user");
+                JsonObject res = new JsonObject();
+                res.addProperty("type", "ROOM_CREATED");
+                res.addProperty("roomId", roomId);
 
-	        if ("CREATE_ROOM".equals(type)) {
-	            createRoom(json, user);
-	        }
+                session.getBasicRemote().sendText(res.toString());
+                broadcastRooms();
+                break;
+            }
+            case "JOIN_ROOM": {
+                joinRoom(json.get("roomId").getAsString(), user);
+                broadcastRooms();
+                break;
+            }
+            case "LEAVE_ROOM": {
+                leaveRoom(json.get("roomId").getAsString(), user);
+                broadcastRooms();
+                break;
+            }
+        }
+    }
 
-	        if ("JOIN_ROOM".equals(type)) {
-	            joinRoom(json.get("roomId").getAsString(), user);
-	        }
 
-	        broadcastRooms();
-	    }
+    /* ===== 방 생성 ===== */
+    private String createRoom(JsonObject json, User user) {
+        Room room = new Room();
+        room.setRoomId(UUID.randomUUID().toString());
+        room.setTitle(json.get("title").getAsString());
+        room.setMode(json.get("mode").getAsString());
 
-	    /* ===== �� ���� ===== */
-	    private void createRoom(JsonObject json, User user) {
-	        Room room = new Room();
-	        room.setRoomId(UUID.randomUUID().toString());
-	        room.setTitle(json.get("title").getAsString());
-	        room.setMode(json.get("mode").getAsString());
-	        room.setBlackPlayer(user);
-	        room.setGameStatus(false);
+        room.setBlackPlayer(user);
+        room.setWhitePlayer(null);
+        room.setGameStatus(false);
 
-	        roomMap.put(room.getRoomId(), room);
-	    }
+        roomMap.put(room.getRoomId(), room);
+        return room.getRoomId(); // ⭐ 핵심
+    }
 
-	    /* ===== �� ���� ===== */
-	    private void joinRoom(String roomId, User user) {
-	        Room room = roomMap.get(roomId);
-	        if (room != null && room.getWhiteUser() == null) {
-	            room.setWhiteUser(user);
-	            room.setGameStatus(true);
-	        }
-	    }
+    /* ===== 방 입장 ===== */
+    private synchronized void joinRoom(String roomId, User user) throws IOException {
+        Room room = roomMap.get(roomId);
+        if (room == null) return;
 
-	    /* ===== �� ���� / ���� ===== */
-	    private void removeUserFromRooms(Session session) {
-	        User user = (User) session.getUserProperties().get("user");
+        // 이미 방에 있는 경우 무시
+        if (user.equals(room.getBlackPlayer()) ||
+            user.equals(room.getWhitePlayer())) {
+            return;
+        }
 
-	        roomMap.values().removeIf(room -> {
-	            if (user.equals(room.getBlackUser())) {
-	                room.setBlackUser(null);
-	            }
-	            if (user.equals(room.getWhiteUser())) {
-	                room.setWhiteUser(null);
-	            }
-	            return room.getBlackUser() == null
-	                && room.getWhiteUser() == null;
-	        });
-	    }
+        // 두 번째 자리
+        if (room.getWhitePlayer() == null) {
+            room.setWhitePlayer(user);
+            room.setGameStatus(true);
+        }
+    }
+    
+    /* ===== 방에 나가기 ===== */
+    private synchronized void leaveRoom(String roomId, User user) {
+        Room room = roomMap.get(roomId);
+        if (room == null) return;
 
-	    private void sendRoomList(Session session) throws IOException {
-	        session.getBasicRemote().sendText(
-	            new Gson().toJson(roomMap.values())
-	        );
-	    }
+        // 1️⃣ 방장이 나가는 경우
+        if (user.equals(room.getBlackPlayer())) {
 
-	    private void broadcastRooms() throws IOException {
-	        String json = new Gson().toJson(roomMap.values());
-	        for (Session s : sessions) {
-	            s.getBasicRemote().sendText(json);
-	        }
-	    }
-	}
+            // 흰돌이 남아 있으면 방장 승격
+            if (room.getWhitePlayer() != null) {
+                room.setBlackPlayer(room.getWhitePlayer());
+                room.setWhitePlayer(null);
+                room.setGameStatus(false); // 다시 대기 상태
+            } 
+            // 아무도 없으면 방 삭제
+            else {
+                roomMap.remove(roomId);
+                return;
+            }
+
+        }
+        // 2️⃣ 두 번째 플레이어가 나가는 경우
+        else if (user.equals(room.getWhitePlayer())) {
+            room.setWhitePlayer(null);
+            room.setGameStatus(false);
+        }
+
+        // 3️⃣ 안전 체크 (혹시 모를 경우)
+        if (room.getBlackPlayer() == null && room.getWhitePlayer() == null) {
+            roomMap.remove(roomId);
+        }
+    }
+
+
+    private void sendRoomList(Session session) throws IOException {
+        session.getBasicRemote().sendText(gson.toJson(roomMap.values()));
+    }
+
+    private void broadcastRooms() throws IOException {
+    	System.out.println("📢 broadcastRooms 호출됨, 방 개수 = " + roomMap.size());
+    	
+        String json = gson.toJson(roomMap.values());
+        for (Session s : sessions) {
+            s.getBasicRemote().sendText(json);
+        }
+    }
+}

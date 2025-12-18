@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+    
 <!DOCTYPE html>
 <html lang="ko">
 	<head>
@@ -57,7 +58,7 @@
 		    list-style: none;
 		    padding: 0;
 		    margin: 0;
-		    gap: 350px;
+		    gap: clamp(40px, 10vw, 300px);;
 		    padding-right: 100px;
 		}
 		
@@ -182,6 +183,7 @@
 		    grid-template-columns: repeat(2, 1fr);
 		    gap: 20px;
 		    margin: 30px;
+		    min-height: 600px;
 		}
 		
 		.room-card {
@@ -190,6 +192,7 @@
 		    padding: 20px;
 		    border: 6px solid #85BE57;
 		    cursor: pointer;
+		    overflow: hidden;
 		  
 		}
 		
@@ -218,6 +221,56 @@
 		    font-weight: 800;
 		    color: #DCDCDC;
 		}
+		
+		.empty-state {
+		    display: none; /* 기본 숨김 */
+		    text-align: center;
+		    padding: 60px 0;
+		}
+		
+		@keyframes floatCat {
+		    0%   { transform: translateY(0); }
+		    50%  { transform: translateY(-10px); }
+		    100% { transform: translateY(0); }
+		}
+		
+		.empty-state img {
+		    animation: floatCat 3s ease-in-out infinite;
+		    max-width: 500px;
+		    width: 80%;
+		    image-rendering: pixelated; /* 도트 감성 */
+		}
+		
+		.empty-state p {
+		    margin-top: 20px;
+		    font-size: 20px;
+		    font-weight: 700;
+		    color: #666;
+		    line-height: 1.4;
+		}
+		
+		
+		.player-line {
+			max-width: 100%;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		
+			font-size: 18px;
+			font-weight: 600;
+			color: #333;
+		}
+		
+		.player-line .vs {
+			margin: 0 6px;
+			color: #999;
+			font-weight: 700;
+		}
+
+		
+
+		
+		
 		</style>
 	</head>
 
@@ -230,7 +283,7 @@
 	    <nav class="menu">
 	        <ul>
 	            <li class="active">
-	            	<a href="#">HOME</a>
+	            	<a href="RoomList.jsp">HOME</a>
 	            </li>
 	            <li>RANK</li>
 	            <li>HOW</li>
@@ -239,7 +292,8 @@
 	
 	    <!-- 아바타 -->
 	    <img src="${pageContext.request.contextPath}${player.avatar}"
-	         alt="avatar" width="36" height="36">
+     		onerror="this.src='${pageContext.request.contextPath}/img/default-avatar.jpg'"
+     		alt="avatar" width="36" height="36">
 	</header>
 	
 	<!-- ===== main ===== -->
@@ -249,7 +303,7 @@
 	    <div class="search-box">
 	        <h1>SEARCH</h1>
 	        <div class="search-inner">
-	            <input type="text" placeholder="SEARCH">
+	        	<input type="text" id="searchInput" placeholder="SEARCH" onkeyup="searchRooms()"/>
 	            <button>JOIN</button>
 	        </div>
 	    </div>
@@ -259,31 +313,40 @@
 	        <div class="ready-header">
 	            <span>READY</span>
 	            <span>
-	            	<button class="addRoombtn" onclick="openAddRoom()"> + </button>
+	            	<button class="addRoombtn" onclick="openPopup()"> + </button>
 	            </span>
 	        </div>
-	
-	        <div class="room-list">
-	            <div class="room-card">
-	                <div class="room-title"># 초보방~</div>
-	                <div class="room-info">
-	                    <span>치이카와 vs</span>
-	                    <span class="time">30s</span>
-	                </div>
-	            </div>
-	
-	            <div class="room-card orange">
-	                <div class="room-title"># 방장바가</div>
-	                <div class="room-info">
-	                    <span>치이카와 vs 우사기</span>
-	                    <span class="time">60s</span>
-	                </div>
-	            </div>
-	            <script src="${pageContext.request.contextPath}/js/room.js" defer></script>
-	        </div>
+	        
+	        <!-- 빈 방 상태 -->
+			<div id="emptyState" class="empty-state">
+			    <img src="${pageContext.request.contextPath}/img/empty-room.png"
+			         alt="empty room">
+			    <p>아직 생성된 방이 없어요 🐱<br>+ 버튼을 눌러 방을 만들어보세요!</p>
+			</div>
+			
+			<!-- 방 리스트 -->
+			<div class="room-list" id="roomList"></div>
+
+
 	    </div>
 	
 	</div>
+	
+<script src="${pageContext.request.contextPath}/js/roomList.js"></script>
+
+<script>
+function openPopup() {
+    const w = 1000, h = 700;
+    const left = (screen.width - w) / 2;
+    const top  = (screen.height - h) / 2;
+
+    window.open(
+        "CreateRoomPopUp.jsp",
+        "popup",
+        `width=${w},height=${h},left=${left},top=${top}`
+    );
+}
+</script>
 
 </body>
 </html>
