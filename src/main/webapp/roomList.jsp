@@ -38,6 +38,7 @@
 		
 		/* ===== top bar ===== */
 		.top-bar {
+			width : 100%;
 		    background: #fff;
 		    height: 80px;
 		    display: flex;
@@ -74,6 +75,7 @@
 		
 		.top-bar {
 		    background: #fff;
+		    width: 100%;
 		    height: 80px;
 		    display: flex;
 		    align-items: center;
@@ -236,7 +238,7 @@
 		
 		.empty-state img {
 		    animation: floatCat 3s ease-in-out infinite;
-		    max-width: 500px;
+		    max-width: 200px;
 		    width: 80%;
 		    image-rendering: pixelated; /* 도트 감성 */
 		}
@@ -304,7 +306,7 @@
 	        <h1>SEARCH</h1>
 	        <div class="search-inner">
 	        	<input type="text" id="searchInput" placeholder="SEARCH" onkeyup="searchRooms()"/>
-	            <button>JOIN</button>
+	            <button>JOIN</buttosn>
 	        </div>
 	    </div>
 	
@@ -321,7 +323,7 @@
 			<div id="emptyState" class="empty-state">
 			    <img src="${pageContext.request.contextPath}/img/empty-room.png"
 			         alt="empty room">
-			    <p>아직 생성된 방이 없어요 🐱<br>+ 버튼을 눌러 방을 만들어보세요!</p>
+			    <p>아직 생성된 방이 없어요 <br>+ 버튼을 눌러 방을 만들어보세요!</p>
 			</div>
 			
 			<!-- 방 리스트 -->
@@ -336,14 +338,10 @@
 
 <script>
 function openPopup() {
-    const w = 1000, h = 700;
-    const left = (screen.width - w) / 2;
-    const top  = (screen.height - h) / 2;
-
-    window.open(
+    const popup = window.open(
         "CreateRoomPopUp.jsp",
-        "popup",
-        `width=${w},height=${h},left=${left},top=${top}`
+        "createRoomPopup",
+        "width=1300,height=1100,resizable=no"
     );
 }
 </script>

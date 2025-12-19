@@ -75,15 +75,36 @@ public class RoomWebSocket {
                 break;
             }
             case "JOIN_ROOM": {
-                joinRoom(json.get("roomId").getAsString(), user);
+                String roomId = json.get("roomId").getAsString();
+
+                boolean joined = joinRoom(roomId, user);
+
+                JsonObject res = new JsonObject();
+
+                if (joined) {
+                    res.addProperty("type", "JOIN_OK");
+                    res.addProperty("roomId", roomId);
+                } else {
+                    res.addProperty("type", "JOIN_DENY");
+                    res.addProperty("roomId", roomId);
+                    res.addProperty("reason", "이미 꽉 찬 방입니다.");
+                }
+
+                session.getBasicRemote().sendText(res.toString());
                 broadcastRooms();
                 break;
             }
+
             case "LEAVE_ROOM": {
-                leaveRoom(json.get("roomId").getAsString(), user);
+                String roomId = json.get("roomId").getAsString();
+
+                leaveRoom(roomId, user);
+
+                // ✅ 나간 직후 반드시 전체 브로드캐스트
                 broadcastRooms();
                 break;
             }
+
         }
     }
 
@@ -104,55 +125,57 @@ public class RoomWebSocket {
     }
 
     /* ===== 방 입장 ===== */
-    private synchronized void joinRoom(String roomId, User user) throws IOException {
+    private synchronized boolean joinRoom(String roomId, User user) {
         Room room = roomMap.get(roomId);
-        if (room == null) return;
+        if (room == null) return false;
 
-        // 이미 방에 있는 경우 무시
         if (user.equals(room.getBlackPlayer()) ||
             user.equals(room.getWhitePlayer())) {
-            return;
+            return true;
         }
 
-        // 두 번째 자리
-        if (room.getWhitePlayer() == null) {
-            room.setWhitePlayer(user);
-            room.setGameStatus(true);
+        if (room.getWhitePlayer() != null) {
+            return false; // ❌ 이미 2명
         }
+
+        room.setWhitePlayer(user);
+        room.setGameStatus(true);
+        return true;
     }
+
     
     /* ===== 방에 나가기 ===== */
     private synchronized void leaveRoom(String roomId, User user) {
         Room room = roomMap.get(roomId);
         if (room == null) return;
 
-        // 1️⃣ 방장이 나가는 경우
+        // 방장이 나가는 경우
         if (user.equals(room.getBlackPlayer())) {
 
-            // 흰돌이 남아 있으면 방장 승격
+            // 흰돌이 있으면 방장 승격
             if (room.getWhitePlayer() != null) {
                 room.setBlackPlayer(room.getWhitePlayer());
                 room.setWhitePlayer(null);
-                room.setGameStatus(false); // 다시 대기 상태
-            } 
-            // 아무도 없으면 방 삭제
-            else {
+                room.setGameStatus(false);
+            } else {
+                // 아무도 없으면 방 삭제
                 roomMap.remove(roomId);
                 return;
             }
 
         }
-        // 2️⃣ 두 번째 플레이어가 나가는 경우
+        // 두 번째 플레이어가 나가는 경우
         else if (user.equals(room.getWhitePlayer())) {
             room.setWhitePlayer(null);
             room.setGameStatus(false);
         }
 
-        // 3️⃣ 안전 체크 (혹시 모를 경우)
+        // 안전 장치
         if (room.getBlackPlayer() == null && room.getWhitePlayer() == null) {
             roomMap.remove(roomId);
         }
     }
+
 
 
     private void sendRoomList(Session session) throws IOException {

@@ -16,16 +16,13 @@
 const roomId = "<%= request.getParameter("roomId") %>";
 
 const socket = new WebSocket(
-    (location.protocol === "https:" ? "wss://" : "ws://")
-    + location.host
-    + "/mini_project/room"
+    (location.protocol === "https:" ? "wss://" : "ws://") +
+    location.host +
+    "/mini_project/room"
 );
 
 socket.onopen = () => {
-    socket.send(JSON.stringify({
-        type: "JOIN_ROOM",
-        roomId: roomId
-    }));
+    console.log("GameRoom WebSocket connected");
 };
 
 function leaveRoom() {
@@ -33,9 +30,15 @@ function leaveRoom() {
         type: "LEAVE_ROOM",
         roomId: roomId
     }));
-    location.href = "RoomList.jsp";
+
+    // 약간의 여유 후 이동 (전송 보장)
+    setTimeout(() => {
+        location.href = "RoomList.jsp";
+    }, 100);
 }
 </script>
+
+
 
 
 </body>

@@ -20,13 +20,17 @@ pageEncoding="UTF-8"
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            overflow: hidden;
         }
         
         .popup-container {
+        	width: 700px;
+    		height: 500px;
+    		
 		    display: flex;
 		    flex-direction: column; 
 		    align-items: center;
+		    justify-content: center;
 		    gap: 30px;
 		}
 
@@ -57,6 +61,7 @@ pageEncoding="UTF-8"
             font-weight: 500;
             border: 6px solid #D4D4D4;
             border-radius: 15px;
+            margin-bottom: 30px; 
             
         }
 
@@ -67,7 +72,7 @@ pageEncoding="UTF-8"
         .radio-wrap {
             display: flex;
             gap: 70px;
-            margin: 20px;
+            margin: 10px;
         }
 
         .radio-box {
@@ -106,19 +111,35 @@ pageEncoding="UTF-8"
             border: 0px;
             text-align: center;
             line-height: 70px;
-        }
-
-        form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 1000px;
-            height: 700px;
-            gap: 15px;
+            cursor: pointer;
         }
 
     </style>
+    
+    <script>
+	window.onload = () => {
+	    const TARGET_WIDTH = 1000;
+	    const TARGET_HEIGHT = 700;
+	
+	    // 🔥 현재 창 크기와 실제 컨텐츠 크기의 차이 계산
+	    const widthDiff  = window.outerWidth  - window.innerWidth;
+	    const heightDiff = window.outerHeight - window.innerHeight;
+	
+	    // 🔥 진짜 원하는 크기로 강제 리사이즈
+	    window.resizeTo(
+	        TARGET_WIDTH + widthDiff,
+	        TARGET_HEIGHT + heightDiff
+	    );
+	
+	    // 중앙 정렬
+	    window.moveTo(
+	        (screen.width  - (TARGET_WIDTH + widthDiff))  / 2,
+	        (screen.height - (TARGET_HEIGHT + heightDiff)) / 2
+	    );
+	};
+	</script>
+    
+    
 </head>
 
 <body>
@@ -149,30 +170,51 @@ pageEncoding="UTF-8"
           
 <script>
 const socket = new WebSocket(
-    (location.protocol === "https:" ? "wss://" : "ws://")
-    + location.host
-    + "/mini_project/room"
+    (location.protocol === "https:" ? "wss://" : "ws://") +
+    location.host +
+    "/mini_project/room"
 );
+
+socket.onopen = () => {
+    console.log("✅ Popup WebSocket connected");
+};
 
 socket.onmessage = e => {
     const data = JSON.parse(e.data);
 
     if (data.type === "ROOM_CREATED") {
+        // 👉 방 만들자마자 게임룸 입장
         window.opener.location.href =
             "/mini_project/GameRoom.jsp?roomId=" + data.roomId;
+
         window.close();
     }
-
 };
 
 function createRoom() {
+    const title = document.getElementById("title").value.trim();
+    const mode = document.querySelector("input[name=mode]:checked").value;
+
+    if (!title) {
+        alert("방 제목을 입력하세요");
+        return;
+    }
+
+    // ⚠️ 이 조건은 거의 안 걸림 (예외 방어용)
+    if (socket.readyState !== WebSocket.OPEN) {
+        console.warn("WebSocket not ready yet");
+        return;
+    }
+
     socket.send(JSON.stringify({
         type: "CREATE_ROOM",
-        title: document.getElementById("title").value,
-        mode: document.querySelector("input[name=mode]:checked").value
+        title: title,
+        mode: mode
     }));
 }
 </script>
+
+
 
 
 
